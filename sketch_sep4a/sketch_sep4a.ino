@@ -1,8 +1,3 @@
-/* 
- *  Programa baseado no programa original desenvolvido por Timothy Woo 
- *  Tutorial do projeto original; https://www.hackster.io/botletics/esp32-ble-android-arduino-ide-awesome-81c67d
- *  Modificado para ler dados do sensor DHT11 - Bluetooth Low Energy com ESP32
- */ 
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -14,12 +9,6 @@
 BLECharacteristic *pCharacteristic;
  
 bool deviceConnected = false;
-const int LED = 2; // Could be different depending on the dev board. I used the DOIT ESP32 dev board.
-
-#define TARGET1PIN 0
- 
-int alvo1 = 0;
-int alvo2 = 0;
 
 // Veja o link seguinte se quiser gerar seus próprios UUIDs:
 // https://www.uuidgenerator.net/
@@ -28,6 +17,57 @@ int alvo2 = 0;
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define DHTDATA_CHAR_UUID "6E400003-B5A3-F393-E0A9-E50E24DCCA9E" 
  
+class Target {
+  private:
+    int led;
+    int hit;
+    int state = 0;
+    int loops = 0;
+  public:
+    
+    Target(int ledPin, int hitPin) { // Constructor with parameters
+      led = ledPin;
+      hit = hitPin;
+      pinMode(led, OUTPUT);
+      pinMode(hit, INPUT);
+      setRed();
+    };
+
+    void setGreen() {
+      digitalWrite(led, LOW);
+      state = 1;
+    };
+
+    void setRed() {
+      digitalWrite(led, HIGH);
+      state = 0;
+    }
+
+    int getState() {
+      return state;
+    }
+
+    void readHit() {
+      int currentState = digitalRead(hit);
+      if (loops > 1000) {
+        loops = 0;
+        setRed();
+      }
+      if (state) {
+        loops++;
+      } else if (currentState) {
+        setGreen();
+      }
+      
+      char alvosDataString[16];
+      sprintf(alvosDataString, "%d", currentState);
+      Serial.print("*** Estado alvo: ");
+      Serial.print(alvosDataString);
+      Serial.println(" ***");
+    }
+};
+
+Target target1(22, 23);
  
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -58,20 +98,17 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       // Processa o caracter recebido do aplicativo. Se for A acende o LED. B apaga o LED
       if (rxValue.find("A") != -1) { 
         Serial.println("Turning ON!");
-        digitalWrite(LED, HIGH);
+        //digitalWrite(LED, HIGH);
       }
       else if (rxValue.find("B") != -1) {
         Serial.println("Turning OFF!");
-        digitalWrite(LED, LOW);
+        //digitalWrite(LED, LOW);
       }
     }
 };
  
 void setup() {
   Serial.begin(115200);
- 
-  pinMode(LED, OUTPUT);
-  //pinMode(TARGET1PIN, INPUT);
  
   // Create the BLE Device
   BLEDevice::init("Alvos Under Army"); // Give it a name
@@ -108,20 +145,6 @@ void setup() {
 }
  
 void loop() {
-  //if (deviceConnected) {
- 
-    // read the input on analog ADC1_0:
-    alvo1 = analogRead(A0);
-    char alvosDataString[16];
-    sprintf(alvosDataString, "%d,%d", alvo1, alvo2);
-     
-    //pCharacteristic->setValue(alvosDataString);
-     
-    //pCharacteristic->notify(); // Envia o valor para o aplicativo!
-    Serial.print("*** Dado enviado: ");
-    Serial.print(alvosDataString);
-    Serial.println(" ***");
-    
-  //}
-  delay(50);
+  target1.readHit();
+  delay(1);
 }
